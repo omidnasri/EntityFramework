@@ -92,7 +92,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
                     identityMap.Add(entityLoadInfo.ValueBuffer, entity);
                 }
 
-                _valueBuffers.Add(entity, entityLoadInfo.ValueBuffer);
+                _valueBuffers.Add(entity, entityLoadInfo.UpdateValueBuffer(entity.GetType()));
             }
 
             return entity;

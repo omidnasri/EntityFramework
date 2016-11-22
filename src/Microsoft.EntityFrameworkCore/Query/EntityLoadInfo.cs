@@ -20,20 +20,25 @@ namespace Microsoft.EntityFrameworkCore.Query
     public struct EntityLoadInfo
     {
         private readonly Func<ValueBuffer, object> _materializer;
+        private readonly Func<Type, ValueBuffer, ValueBuffer> _remapValueBuffer;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="EntityLoadInfo" /> struct.
         /// </summary>
         /// <param name="valueBuffer"> The row of data that represents this entity. </param>
         /// <param name="materializer"> The method to materialize the data into an entity instance. </param>
+        /// <param name="remapValueBuffer"> The method to re-map the valueBuffer into a valueBuffer representing current entity instance. </param>
         public EntityLoadInfo(
-            ValueBuffer valueBuffer, [NotNull] Func<ValueBuffer, object> materializer)
+            ValueBuffer valueBuffer,
+            [NotNull] Func<ValueBuffer, object> materializer,
+            Func<Type, ValueBuffer, ValueBuffer> remapValueBuffer = null)
         {
             // hot path
             Debug.Assert(materializer != null);
 
             ValueBuffer = valueBuffer;
             _materializer = materializer;
+            _remapValueBuffer = remapValueBuffer;
         }
 
         /// <summary>
@@ -46,5 +51,11 @@ namespace Microsoft.EntityFrameworkCore.Query
         /// </summary>
         /// <returns> The entity instance. </returns>
         public object Materialize() => _materializer(ValueBuffer);
+
+        /// <summary>
+        ///     Remaps the row of data into row which represent current entity instance data.
+        /// </summary>
+        /// <returns> The entity instance. </returns>
+        public ValueBuffer UpdateValueBuffer(Type clrType) => _remapValueBuffer?.Invoke(clrType, ValueBuffer) ?? ValueBuffer;
     }
 }

@@ -2,7 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -26,8 +28,9 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             [NotNull] string entityType,
             bool trackingQuery,
             [NotNull] IKey key,
-            [NotNull] Func<ValueBuffer, object> materializer)
-            : base(querySource, entityType, trackingQuery, key, materializer)
+            [NotNull] Func<ValueBuffer, object> materializer,
+            [CanBeNull] Dictionary<Type, int[]> typeIndexMap)
+            : base(querySource, entityType, trackingQuery, key, materializer, typeIndexMap)
         {
         }
 
@@ -49,11 +52,24 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 = (TEntity)queryContext.QueryBuffer
                     .GetEntity(
                         Key,
-                        new EntityLoadInfo(valueBuffer, Materializer),
+                        new EntityLoadInfo(valueBuffer, Materializer, RemapValueBuffer),
                         queryStateManager: IsTrackingQuery,
                         throwOnNullKey: !AllowNullResult);
 
             return entity;
+        }
+
+        private ValueBuffer RemapValueBuffer(Type entityClrType, ValueBuffer valueBuffer)
+        {
+            if (!TypeIndexMap.ContainsKey(entityClrType))
+            {
+                return valueBuffer;
+            }
+
+            var indexMap = TypeIndexMap[entityClrType];
+            var values = indexMap.Select(t => valueBuffer[t]).ToList();
+
+            return new ValueBuffer(values);
         }
 
         /// <summary>
@@ -66,7 +82,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 EntityType,
                 IsTrackingQuery,
                 Key,
-                Materializer);
+                Materializer,
+                TypeIndexMap);
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -78,7 +95,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                     EntityType,
                     IsTrackingQuery,
                     Key,
-                    Materializer)
+                    Materializer,
+                    TypeIndexMap)
                 .SetOffset(offset);
 
         /// <summary>

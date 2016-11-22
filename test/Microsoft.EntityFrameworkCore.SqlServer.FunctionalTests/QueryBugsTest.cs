@@ -1482,7 +1482,20 @@ WHERE ([c].[FirstName] = @__firstName_0) AND ([c].[LastName] = @__8__locals1_det
             {
                 // Run queries
                 var query = db.Contacts.ToList();
+            }
 
+            using (var db = new MyContext())
+            {
+                // Run queries
+                var query = db.Contacts.OfType<ServiceOperatorContact>().Include(e => e.ServiceOperator).ToList();
+            }
+
+            using (var db = new MyContext())
+            {
+                // Run queries
+                var query = db.Contacts.OfType<ServiceOperatorContact>().Select(c => new { c, Prop = EF.Property<int>(c, "ServiceOperatorId")}).ToList();
+
+                Assert.NotNull(query.First().Prop);
             }
         }
 

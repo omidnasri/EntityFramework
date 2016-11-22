@@ -261,7 +261,7 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                             : selectExpression.AddLeftOuterJoin(joinedTableExpression);
 
                     var oldPredicate = selectExpression.Predicate;
-
+                    Dictionary<Type, int []> typeIndexMap;
                     var materializer
                         = _materializerFactory
                             .CreateMaterializer(
@@ -273,7 +273,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                                                        _relationalAnnotationProvider.For(p).ColumnName,
                                                        p,
                                                        joinedTableExpression))) - valueBufferOffset,
-                                querySource: null);
+                                /*querySource:*/ null,
+                                out typeIndexMap);
 
                     if (selectExpression.Predicate != oldPredicate)
                     {
@@ -348,6 +349,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
 
                     targetSelectExpression.AddTable(targetTableExpression, createUniqueAlias: false);
 
+                    Dictionary<Type, int[]> typeIndexMap;
+
                     var materializer
                         = _materializerFactory
                             .CreateMaterializer(
@@ -357,7 +360,8 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                                     _relationalAnnotationProvider.For(p).ColumnName,
                                     p,
                                     querySource),
-                                querySource: null);
+                                /*querySource: */null,
+                                out typeIndexMap);
 
                     if (canGenerateExists)
                     {
