@@ -27,6 +27,7 @@ namespace Microsoft.EntityFrameworkCore.Storage
 
         private readonly IList<object> _values;
         private readonly int _offset;
+        private readonly int[] _indexMap;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="ValueBuffer" /> class.
@@ -45,12 +46,28 @@ namespace Microsoft.EntityFrameworkCore.Storage
         ///     The starting slot in <paramref name="values" /> for this buffer.
         /// </param>
         public ValueBuffer([NotNull] IList<object> values, int offset)
+            : this(values, offset, null)
+        {
+        }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="ValueBuffer" /> class.
+        /// </summary>
+        /// <param name="values"> The list of values for this buffer. </param>
+        /// <param name="offset">
+        ///     The starting slot in <paramref name="values" /> for this buffer.
+        /// </param>
+        /// <param name="indexMap">
+        ///     The starting slot in <paramref name="values" /> for this buffer.
+        /// </param>
+        public ValueBuffer([NotNull] IList<object> values, int offset, int[] indexMap)
         {
             Debug.Assert(values != null);
             Debug.Assert(offset >= 0);
 
             _values = values;
             _offset = offset;
+            _indexMap = indexMap;
         }
 
         /// <summary>
@@ -60,8 +77,9 @@ namespace Microsoft.EntityFrameworkCore.Storage
         /// <returns> The value at the requested index. </returns>
         public object this[int index]
         {
-            get { return _values[_offset + index]; }
-            [param: CanBeNull] set { _values[_offset + index] = value; }
+            get { return _values[_offset + (_indexMap?[index] ?? index)]; }
+            [param: CanBeNull]
+            set { _values[_offset + (_indexMap?[index] ?? index)] = value; }
         }
 
         internal static readonly MethodInfo GetValueMethod
@@ -87,6 +105,15 @@ namespace Microsoft.EntityFrameworkCore.Storage
                 ? new ValueBuffer(_values, offset)
                 : this;
         }
+
+        /// <summary>
+        ///     Creates a new buffer with data starting at the given index in the current buffer.
+        /// </summary>
+        /// <param name="indexMap">
+        ///     The slot in the current buffer that will be the starting slot in the new buffer.
+        /// </param>
+        /// <returns> The newly created buffer. </returns>
+        public ValueBuffer WithIndexMap(int[] indexMap) => indexMap != null ? new ValueBuffer(_values, _offset, indexMap) : this;
 
         /// <summary>
         ///     Gets a value indicating whether the value buffer is empty.
