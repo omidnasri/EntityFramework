@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Internal;
@@ -1437,6 +1438,109 @@ WHERE ([c].[FirstName] = @__firstName_0) AND ([c].[LastName] = @__8__locals1_det
 
             TestSqlLoggerFactory.Reset();
             return testStore;
+        }
+        [Fact]
+        public virtual void Test()
+        {
+            using (var context = new MyContext())
+            {
+                context.Database.EnsureDeleted();
+                context.Database.EnsureCreated();
+
+                context.ServiceOperators.Add(new ServiceOperator());
+                context.Employers.AddRange(
+                    new Employer { Name = "UWE" },
+                    new Employer { Name = "Hewlett Packard" });
+
+                context.SaveChanges();
+
+                context.Contacts.AddRange(
+                    new ServiceOperatorContact
+                    {
+                        UserName = "service.operator@esoterix.co.uk",
+                        ServiceOperator = context.ServiceOperators.First()
+                    },
+                    new EmployerContact
+                    {
+                        UserName = "uwe@esoterix.co.uk",
+                        Employer = context.Employers.Where(e => e.Name == "UWE").First()
+                    },
+                    new EmployerContact
+                    {
+                        UserName = "hp@esoterix.co.uk",
+                        Employer = context.Employers.Where(e => e.Name == "Hewlett Packard").First()
+                    },
+                    new Contact
+                    {
+                        UserName = "noroles@esoterix.co.uk",
+                    });
+                context.SaveChanges();
+
+            }
+
+            using (var db = new MyContext())
+            {
+                // Run queries
+                var query = db.Contacts.ToList();
+
+            }
+        }
+
+        public class MyContext : DbContext
+        {
+            // Declare DBSets
+            public DbSet<Contact> Contacts { get; set; }
+            public DbSet<EmployerContact> EmployerContacts { get; set; }
+            public DbSet<Employer> Employers { get; set; }
+            public DbSet<ServiceOperatorContact> ServiceOperatorContacts { get; set; }
+            public DbSet<ServiceOperator> ServiceOperators { get; set; }
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            {
+                // Select 1 provider
+                optionsBuilder
+                    .UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=_ModelApp;Trusted_Connection=True;")
+                    //     .UseSqlite("filename=_modelApp.db")
+                    //     .UseInMemoryDatabase(databaseName: "_modelApp")
+                    .EnableSensitiveDataLogging();
+            }
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                // Configure model
+            }
+        }
+
+        public class EmployerContact : Contact
+        {
+            [Required]
+            public Employer Employer { get; set; }
+        }
+
+        public class ServiceOperatorContact : Contact
+        {
+            [Required]
+            public ServiceOperator ServiceOperator { get; set; }
+        }
+
+        public class Contact
+        {
+            public int Id { get; set; }
+            public string UserName { get; set; }
+            public bool IsPrimary { get; set; }
+        }
+
+        public class Employer
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+            public List<EmployerContact> Contacts { get; set; }
+        }
+
+        public class ServiceOperator
+        {
+            public int Id { get; set; }
+            public List<ServiceOperatorContact> Contacts { get; set; }
         }
     }
 }
