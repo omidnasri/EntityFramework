@@ -257,6 +257,48 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
             Assert.True(property.IsReadOnlyAfterSave);
         }
 
+        [Fact]
+        public void Property_on_delegated_identity_entity_uses_defaults_from_definition()
+        {
+            var entityType = new Model().AddEntityType(typeof(Entity));
+            var property = entityType.AddProperty("Name", typeof(string));
+
+            var delegatedIdentityEntityType = entityType.AddDelegatedIdentityEntityType();
+            var delegatedIdentityProperty = delegatedIdentityEntityType.FindProperty(property.Name);
+
+            Assert.Same(delegatedIdentityEntityType, delegatedIdentityProperty.DeclaringEntityType);
+            Assert.Same(property, delegatedIdentityProperty.DefiningProperty);
+            Assert.Equal(property.Name, delegatedIdentityProperty.Name);
+            Assert.Equal(property.PropertyInfo, delegatedIdentityProperty.PropertyInfo);
+            Assert.Equal(property.FieldInfo, delegatedIdentityProperty.FieldInfo);
+            Assert.Equal(property.ClrType, delegatedIdentityProperty.ClrType);
+            Assert.Equal(property.Name, delegatedIdentityProperty.Name);
+
+            Assert.Equal(ValueGenerated.Never, delegatedIdentityProperty.ValueGenerated);
+            property.ValueGenerated = ValueGenerated.OnAdd;
+            Assert.Equal(ValueGenerated.OnAdd, delegatedIdentityProperty.ValueGenerated);
+
+            Assert.False(delegatedIdentityProperty.IsConcurrencyToken);
+            property.IsConcurrencyToken = true;
+            Assert.True(delegatedIdentityProperty.IsConcurrencyToken);
+
+            Assert.True(delegatedIdentityProperty.IsNullable);
+            property.IsNullable = false;
+            Assert.False(delegatedIdentityProperty.IsNullable);
+
+            Assert.False(delegatedIdentityProperty.IsStoreGeneratedAlways);
+            property.IsStoreGeneratedAlways = true;
+            Assert.True(delegatedIdentityProperty.IsStoreGeneratedAlways);
+
+            Assert.False(delegatedIdentityProperty.IsReadOnlyAfterSave);
+            property.IsReadOnlyAfterSave = true;
+            Assert.True(delegatedIdentityProperty.IsReadOnlyAfterSave);
+
+            Assert.False(delegatedIdentityProperty.IsReadOnlyBeforeSave);
+            property.IsReadOnlyBeforeSave = true;
+            Assert.True(delegatedIdentityProperty.IsReadOnlyBeforeSave);
+        }
+
         private class Entity
         {
             public string Name { get; set; }

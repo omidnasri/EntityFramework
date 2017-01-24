@@ -61,7 +61,31 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
+        public Property(
+            [NotNull] Property definingProperty,
+            [NotNull] EntityType declaringEntityType)
+            : this(definingProperty.Name,
+                  definingProperty.ClrType,
+                  definingProperty.PropertyInfo,
+                  definingProperty.FieldInfo,
+                  declaringEntityType,
+                  definingProperty.GetConfigurationSource(),
+                  definingProperty.GetTypeConfigurationSource())
+        {
+            DefiningProperty = definingProperty;
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
         public virtual EntityType DeclaringEntityType { get; }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual Property DefiningProperty { get; }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -165,7 +189,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             }
         }
 
-        private bool DefaultIsNullable => ClrType.IsNullableType();
+        private bool DefaultIsNullable => DefiningProperty?.GetIsNullableConfigurationSource() != null
+            ? DefiningProperty.IsNullable
+            : ClrType.IsNullableType();
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -217,7 +243,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             }
         }
 
-        private static ValueGenerated DefaultValueGenerated => ValueGenerated.Never;
+        private ValueGenerated DefaultValueGenerated => DefiningProperty?.GetValueGeneratedConfigurationSource() != null
+            ? DefiningProperty.ValueGenerated
+            : ValueGenerated.Never;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -252,9 +280,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             UpdateIsReadOnlyBeforeSaveConfigurationSource(configurationSource);
         }
 
-        private bool DefaultIsReadOnlyBeforeSave
-            => (ValueGenerated == ValueGenerated.OnAddOrUpdate)
-               && !IsStoreGeneratedAlways;
+        private bool DefaultIsReadOnlyBeforeSave => DefiningProperty?.GetIsReadOnlyBeforeSaveConfigurationSource() != null
+            ? DefiningProperty.IsReadOnlyBeforeSave
+            : (ValueGenerated == ValueGenerated.OnAddOrUpdate)
+              && !IsStoreGeneratedAlways;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -294,10 +323,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             UpdateIsReadOnlyAfterSaveConfigurationSource(configurationSource);
         }
 
-        private bool DefaultIsReadOnlyAfterSave
-            => ((ValueGenerated == ValueGenerated.OnAddOrUpdate)
-                && !IsStoreGeneratedAlways)
-               || Keys != null;
+        private bool DefaultIsReadOnlyAfterSave => DefiningProperty?.GetIsReadOnlyAfterSaveConfigurationSource() != null
+            ? DefiningProperty.IsReadOnlyAfterSave
+            : ((ValueGenerated == ValueGenerated.OnAddOrUpdate)
+               && !IsStoreGeneratedAlways)
+              || Keys != null;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -337,7 +367,8 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             UpdateIsConcurrencyTokenConfigurationSource(configurationSource);
         }
 
-        private static bool DefaultIsConcurrencyToken => false;
+        private bool DefaultIsConcurrencyToken
+            => DefiningProperty?.GetIsConcurrencyTokenConfigurationSource() != null && DefiningProperty.IsConcurrencyToken;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -377,7 +408,9 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             UpdateIsStoreGeneratedAlwaysConfigurationSource(configurationSource);
         }
 
-        private bool DefaultStoreGeneratedAlways => (ValueGenerated == ValueGenerated.OnAddOrUpdate) && IsConcurrencyToken;
+        private bool DefaultStoreGeneratedAlways => DefiningProperty?.GetIsStoreGeneratedAlwaysConfigurationSource() != null
+            ? DefiningProperty.IsStoreGeneratedAlways
+            : (ValueGenerated == ValueGenerated.OnAddOrUpdate) && IsConcurrencyToken;
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

@@ -29,6 +29,18 @@ namespace Microsoft.EntityFrameworkCore.Metadata
         new IMutableEntityType BaseType { get; [param: CanBeNull] set; }
 
         /// <summary>
+        ///     Adds an entity type with delegated identity.
+        /// </summary>
+        /// <returns> The new entity type. </returns>
+        IMutableEntityType AddDelegatedIdentityEntityType();
+
+        /// <summary>
+        ///     Gets the entity types with delegated identity that are defined by this entity type.
+        /// </summary>
+        /// <returns> The entity types with delegated identity defined by this entity type. </returns>
+        new IEnumerable<IMutableEntityType> GetDelegatedIdentityEntityTypes();
+
+        /// <summary>
         ///     Sets the primary key for this entity.
         /// </summary>
         /// <param name="properties"> The properties that make up the primary key. </param>

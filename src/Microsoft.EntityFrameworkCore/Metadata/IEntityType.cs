@@ -18,6 +18,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata
         IEntityType BaseType { get; }
 
         /// <summary>
+        ///     Gets the entity types with delegated identity that are defined by this entity type.
+        /// </summary>
+        /// <returns> The entity types with delegated identity defined by this entity type. </returns>
+        IEnumerable<IEntityType> GetDelegatedIdentityEntityTypes();
+
+        /// <summary>
         ///     <para>
         ///         Gets primary key for this entity. Returns null if no primary key is defined.
         ///     </para>

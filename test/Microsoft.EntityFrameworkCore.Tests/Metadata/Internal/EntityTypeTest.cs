@@ -2990,6 +2990,85 @@ namespace Microsoft.EntityFrameworkCore.Tests.Metadata.Internal
         }
 
         [Fact]
+        public void Can_add_entity_types_with_delegated_identity()
+        {
+            IMutableModel model = new Model();
+            var customerType = model.AddEntityType(typeof(Customer));
+            var idProperty = customerType.GetOrAddProperty(Customer.IdProperty);
+            var customerKey = customerType.AddKey(idProperty);
+            var orderType = model.AddEntityType(typeof(Order));
+            var delegatedOrderType = orderType.AddDelegatedIdentityEntityType();
+
+            var fkProperty = delegatedOrderType.AddProperty("ShadowId", typeof(int));
+            var orderKey = delegatedOrderType.AddKey(fkProperty);
+            var fk = delegatedOrderType.AddForeignKey(fkProperty, customerKey, customerType);
+            var index = delegatedOrderType.AddIndex(fkProperty);
+
+            Assert.Empty(orderType.GetProperties());
+            Assert.Same(fkProperty, delegatedOrderType.GetProperties().Single());
+            Assert.Same(orderKey, delegatedOrderType.GetKeys().Single());
+            Assert.Same(fk, delegatedOrderType.GetForeignKeys().Single());
+            Assert.Same(index, delegatedOrderType.GetIndexes().Single());
+        }
+
+        [Fact]
+        public void Adding_members_to_delegated_identity_definition_entity_types_throws()
+        {
+            IMutableModel model = new Model();
+            var customerType = model.AddEntityType(typeof(Customer));
+            var idProperty = customerType.GetOrAddProperty(Customer.IdProperty);
+            var customerKey = customerType.AddKey(idProperty);
+            var baseType = model.AddEntityType(typeof(BaseType));
+            var orderType = model.AddEntityType(typeof(Order));
+            var derivedType = model.AddEntityType(typeof(SpecialOrder));
+            var fkProperty = orderType.AddProperty("ShadowId", typeof(int));
+
+            var orderKey = orderType.AddKey(fkProperty);
+            Assert.Throws<InvalidOperationException>(() => orderType.AddDelegatedIdentityEntityType());
+            orderType.RemoveKey(orderKey.Properties);
+
+            var fk = orderType.AddForeignKey(fkProperty, customerKey, customerType);
+            Assert.Throws<InvalidOperationException>(() => orderType.AddDelegatedIdentityEntityType());
+            orderType.RemoveForeignKey(fk.Properties, customerKey, customerType);
+
+            var index = orderType.AddIndex(fkProperty);
+            Assert.Throws<InvalidOperationException>(() => orderType.AddDelegatedIdentityEntityType());
+            orderType.RemoveIndex(index.Properties);
+
+            orderType.BaseType = baseType;
+            Assert.Throws<InvalidOperationException>(() => orderType.AddDelegatedIdentityEntityType());
+            orderType.BaseType = null;
+
+            derivedType.BaseType = orderType;
+            Assert.Throws<InvalidOperationException>(() => orderType.AddDelegatedIdentityEntityType());
+            derivedType.BaseType = null;
+
+            var delegatedOrderType = orderType.AddDelegatedIdentityEntityType();
+
+            Assert.Throws<InvalidOperationException>(() => orderType.AddKey(fkProperty));
+            Assert.Throws<InvalidOperationException>(() => orderType.AddForeignKey(fkProperty, customerKey, customerType));
+            Assert.Throws<InvalidOperationException>(() => orderType.AddIndex(fkProperty));
+            Assert.Throws<InvalidOperationException>(() => orderType.BaseType = baseType);
+            Assert.Throws<InvalidOperationException>(() => derivedType.BaseType = orderType);
+            Assert.Throws<InvalidOperationException>(() => delegatedOrderType.BaseType = baseType);
+            Assert.Throws<InvalidOperationException>(() => derivedType.BaseType = delegatedOrderType);
+
+            Assert.Same(fkProperty, orderType.GetProperties().Single());
+            Assert.NotSame(fkProperty, delegatedOrderType.GetProperties().Single());
+
+            orderType.RemoveProperty(fkProperty.Name);
+
+            Assert.Empty(orderType.GetProperties());
+            Assert.Empty(orderType.GetKeys());
+            Assert.Empty(orderType.GetForeignKeys());
+            Assert.Empty(orderType.GetIndexes());
+            Assert.Empty(delegatedOrderType.GetProperties());
+            Assert.Empty(delegatedOrderType.GetKeys());
+            Assert.Empty(delegatedOrderType.GetForeignKeys());
+            Assert.Empty(delegatedOrderType.GetIndexes());
+        }
+
+        [Fact]
         public void Change_tracking_from_model_is_used_by_default_regardless_of_CLR_type()
         {
             var model = BuildFullNotificationEntityModel();

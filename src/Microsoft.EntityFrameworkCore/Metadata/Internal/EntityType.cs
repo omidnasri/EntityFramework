@@ -78,6 +78,26 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
+        public EntityType([NotNull] string name, [NotNull] EntityType definingEntityType, ConfigurationSource configurationSource)
+            : this(name, definingEntityType.Model, configurationSource)
+        {
+            DefiningEntityType = this;
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public EntityType([NotNull] Type clrType, [NotNull] EntityType definingEntityType, ConfigurationSource configurationSource)
+            : this(clrType, definingEntityType.Model, configurationSource)
+        {
+            DefiningEntityType = definingEntityType;
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
         public virtual InternalEntityTypeBuilder Builder { [DebuggerStepThrough] get; [DebuggerStepThrough] [param: CanBeNull] set; }
 
         /// <summary>
@@ -102,6 +122,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 return;
             }
 
+            if (DefiningEntityType != null
+                || IsDelegatedIdentityDefinition)
+            {
+                throw new InvalidOperationException();
+            }
+
             var originalBaseType = _baseType;
             _baseType?._directlyDerivedTypes.Remove(this);
             _baseType = null;
@@ -117,6 +143,12 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                     if (!entityType.ClrType.GetTypeInfo().IsAssignableFrom(ClrType.GetTypeInfo()))
                     {
                         throw new InvalidOperationException(CoreStrings.NotAssignableClrBaseType(this.DisplayName(), entityType.DisplayName(), ClrType.ShortDisplayName(), entityType.ClrType.ShortDisplayName()));
+                    }
+
+                    if (entityType.DefiningEntityType != null
+                        || entityType.IsDelegatedIdentityDefinition)
+                    {
+                        throw new InvalidOperationException();
                     }
                 }
 
@@ -248,6 +280,86 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public virtual EntityType RootType() => (EntityType)((IEntityType)this).RootType();
+
+        private List<EntityType> _delegatedIdentityTypes;
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual IEnumerable<EntityType> GetDelegatedIdentityEntityTypes()
+            => _delegatedIdentityTypes ?? Enumerable.Empty<EntityType>();
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual EntityType AddDelegatedIdentityEntityType(
+            ConfigurationSource configurationSource = ConfigurationSource.Explicit,
+            bool runConventions = true)
+        {
+            if (GetKeys().Any()
+                || GetForeignKeys().Any()
+                || GetIndexes().Any()
+                || BaseType != null
+                || GetDirectlyDerivedTypes().Any())
+            {
+                throw new InvalidOperationException();
+            }
+
+            if (_delegatedIdentityTypes == null)
+            {
+                _delegatedIdentityTypes = new List<EntityType>();
+            }
+
+            var entityType = ClrType == null
+                ? new EntityType(Name, this, configurationSource)
+                : new EntityType(ClrType, this, configurationSource);
+
+            _delegatedIdentityTypes.Add(entityType);
+
+            foreach (var property in GetProperties())
+            {
+                entityType.AddProperty(property);
+            }
+
+            return entityType;
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual void RemoveEntityType([NotNull] EntityType entityType)
+        {
+            Check.NotNull(entityType, nameof(entityType));
+
+            var referencingForeignKey = entityType.GetDeclaredReferencingForeignKeys().FirstOrDefault();
+            if (referencingForeignKey != null)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.EntityTypeInUseByForeignKey(
+                        entityType.DisplayName(),
+                        Property.Format(referencingForeignKey.Properties),
+                        referencingForeignKey.DeclaringEntityType.DisplayName()));
+            }
+
+            _delegatedIdentityTypes.Remove(entityType);
+            entityType.Builder = null;
+        }
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual bool IsDelegatedIdentityDefinition
+            => GetDelegatedIdentityEntityTypes().Any();
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        public virtual EntityType DefiningEntityType { get; }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -436,6 +548,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         {
             Check.NotEmpty(properties, nameof(properties));
             Check.HasNoNulls(properties, nameof(properties));
+
+            if (IsDelegatedIdentityDefinition)
+            {
+                throw new InvalidOperationException();
+            }
 
             if (_baseType != null)
             {
@@ -634,6 +751,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             Check.HasNoNulls(properties, nameof(properties));
             Check.NotNull(principalKey, nameof(principalKey));
             Check.NotNull(principalEntityType, nameof(principalEntityType));
+
+            if (IsDelegatedIdentityDefinition)
+            {
+                throw new InvalidOperationException();
+            }
 
             foreach (var property in properties)
             {
@@ -1187,6 +1309,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             Check.NotEmpty(properties, nameof(properties));
             Check.HasNoNulls(properties, nameof(properties));
 
+            if (IsDelegatedIdentityDefinition)
+            {
+                throw new InvalidOperationException();
+            }
+
             foreach (var property in properties)
             {
                 if (FindProperty(property.Name) != property)
@@ -1401,6 +1528,21 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             return AddProperty(memberInfo.Name, memberInfo.GetMemberType(), memberInfo, configurationSource, configurationSource, runConventions);
         }
 
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        private Property AddProperty(
+            [NotNull] Property definingProperty,
+            bool runConventions = true)
+        {
+            Debug.Assert(definingProperty != null);
+
+            ValidateCanAddProperty(definingProperty.Name);
+
+            return OnPropertyAdded(new Property(definingProperty, this), runConventions);
+        }
+
         private void ValidateCanAddProperty(string name)
         {
             var duplicateProperty = FindPropertiesInHierarchy(name).FirstOrDefault();
@@ -1452,6 +1594,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
             var property = new Property(name, propertyType, memberInfo as PropertyInfo, memberInfo as FieldInfo, this, configurationSource, typeConfigurationSource);
 
+            return OnPropertyAdded(property, runConventions);
+        }
+
+        private Property OnPropertyAdded(Property property, bool runConventions)
+        {
             _properties.Add(property.Name, property);
 
             PropertyMetadataChanged();
@@ -1460,7 +1607,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             {
                 property = Model.ConventionDispatcher.OnPropertyAdded(property.Builder)?.Metadata;
             }
-
             return property;
         }
 
@@ -1558,6 +1704,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             _properties.Remove(property.Name);
             property.Builder = null;
 
+            foreach (var delegatedIdentityEntityType in GetDelegatedIdentityEntityTypes())
+            {
+                delegatedIdentityEntityType.RemoveProperty(delegatedIdentityEntityType.FindProperty(property.Name));
+            }
+
             PropertyMetadataChanged();
 
             return property;
@@ -1586,6 +1737,11 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 throw new InvalidOperationException(
                     CoreStrings.PropertyInUseIndex(property.Name, this.DisplayName(),
                         Property.Format(containingIndex.Properties), containingIndex.DeclaringEntityType.DisplayName()));
+            }
+
+            foreach (var delegatedIdentityEntityType in GetDelegatedIdentityEntityTypes())
+            {
+                delegatedIdentityEntityType.CheckPropertyNotInUse(delegatedIdentityEntityType.FindProperty(property.Name));
             }
         }
 
@@ -1693,6 +1849,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             get { return _baseType; }
             set { HasBaseType((EntityType)value); }
         }
+
+        IMutableEntityType IMutableEntityType.AddDelegatedIdentityEntityType()
+            => AddDelegatedIdentityEntityType();
+
+        IEnumerable<IEntityType> IEntityType.GetDelegatedIdentityEntityTypes()
+            => ((IMutableEntityType)this).GetDelegatedIdentityEntityTypes();
+
+        IEnumerable<IMutableEntityType> IMutableEntityType.GetDelegatedIdentityEntityTypes()
+            => GetDelegatedIdentityEntityTypes();
 
         IMutableKey IMutableEntityType.SetPrimaryKey(IReadOnlyList<IMutableProperty> properties)
             => SetPrimaryKey(properties?.Cast<Property>().ToList());
