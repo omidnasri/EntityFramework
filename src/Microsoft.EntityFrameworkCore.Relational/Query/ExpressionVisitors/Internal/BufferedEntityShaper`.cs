@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -30,8 +29,9 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             [NotNull] IKey key,
             [NotNull] Func<ValueBuffer, object> materializer,
             [CanBeNull] Dictionary<Type, int[]> typeIndexMap)
-            : base(querySource, entityType, trackingQuery, key, materializer, typeIndexMap)
+            : base(querySource, entityType, trackingQuery, key, materializer)
         {
+            TypeIndexMap = typeIndexMap;
         }
 
         /// <summary>
@@ -39,6 +39,12 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public override Type Type => typeof(TEntity);
+
+        /// <summary>
+        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        protected virtual Dictionary<Type, int[]> TypeIndexMap { get; }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -52,24 +58,11 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 = (TEntity)queryContext.QueryBuffer
                     .GetEntity(
                         Key,
-                        new EntityLoadInfo(valueBuffer, Materializer, RemapValueBuffer),
+                        new EntityLoadInfo(valueBuffer, Materializer, TypeIndexMap),
                         queryStateManager: IsTrackingQuery,
                         throwOnNullKey: !AllowNullResult);
 
             return entity;
-        }
-
-        private ValueBuffer RemapValueBuffer(Type entityClrType, ValueBuffer valueBuffer)
-        {
-            if (!TypeIndexMap.ContainsKey(entityClrType))
-            {
-                return valueBuffer;
-            }
-
-            var indexMap = TypeIndexMap[entityClrType];
-            var values = indexMap.Select(t => valueBuffer[t]).ToList();
-
-            return new ValueBuffer(values);
         }
 
         /// <summary>

@@ -2,9 +2,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using JetBrains.Annotations;
+using System.Linq;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Utilities;
 
 namespace Microsoft.EntityFrameworkCore.Query
 {
@@ -20,25 +23,25 @@ namespace Microsoft.EntityFrameworkCore.Query
     public struct EntityLoadInfo
     {
         private readonly Func<ValueBuffer, object> _materializer;
-        private readonly Func<Type, ValueBuffer, ValueBuffer> _remapValueBuffer;
+        private readonly Dictionary<Type, int[]> _typeIndexMap;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="EntityLoadInfo" /> struct.
         /// </summary>
         /// <param name="valueBuffer"> The row of data that represents this entity. </param>
         /// <param name="materializer"> The method to materialize the data into an entity instance. </param>
-        /// <param name="remapValueBuffer"> The method to re-map the valueBuffer into a valueBuffer representing current entity instance. </param>
+        /// <param name="typeIndexMap"> Dictionary containing mapping from property indexes to values in ValueBuffer. </param>
         public EntityLoadInfo(
             ValueBuffer valueBuffer,
             [NotNull] Func<ValueBuffer, object> materializer,
-            Func<Type, ValueBuffer, ValueBuffer> remapValueBuffer = null)
+            [CanBeNull] Dictionary<Type, int[]> typeIndexMap = null)
         {
             // hot path
             Debug.Assert(materializer != null);
 
             ValueBuffer = valueBuffer;
             _materializer = materializer;
-            _remapValueBuffer = remapValueBuffer;
+            _typeIndexMap = typeIndexMap;
         }
 
         /// <summary>
@@ -56,6 +59,24 @@ namespace Microsoft.EntityFrameworkCore.Query
         ///     Remaps the row of data into row which represent current entity instance data.
         /// </summary>
         /// <returns> The entity instance. </returns>
-        public ValueBuffer UpdateValueBuffer(Type clrType) => _remapValueBuffer?.Invoke(clrType, ValueBuffer) ?? ValueBuffer;
+        public ValueBuffer UpdateValueBuffer([NotNull] Type clrType)
+        {
+            Check.NotNull(clrType, nameof(clrType));
+
+            if (_typeIndexMap == null || !_typeIndexMap.ContainsKey(clrType))
+            {
+                return ValueBuffer;
+            }
+
+            var indexMap = _typeIndexMap[clrType];
+            var values = new List<object>();
+            // ReSharper disable once LoopCanBeConvertedToQuery
+            foreach (var i in indexMap)
+            {
+                values.Add(ValueBuffer[i]);
+            }
+
+            return new ValueBuffer(values);
+        }
     }
 }

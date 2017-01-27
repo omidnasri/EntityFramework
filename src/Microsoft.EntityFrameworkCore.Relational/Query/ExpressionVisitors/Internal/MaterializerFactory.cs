@@ -175,6 +175,11 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             selectExpression.Predicate
                 = new DiscriminatorPredicateExpression(discriminatorPredicate, querySource);
 
+            if (typeIndexMap.Count == 0)
+            {
+                typeIndexMap = null;
+            }
+
             return Expression.Lambda<Func<ValueBuffer, object>>(
                 Expression.Block(new[] { discriminatorValueVariable }, blockExpressions),
                 valueBufferParameter);

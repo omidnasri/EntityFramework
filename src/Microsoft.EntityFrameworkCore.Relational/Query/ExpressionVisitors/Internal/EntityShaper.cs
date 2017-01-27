@@ -25,15 +25,13 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
             [NotNull] string entityType,
             bool trackingQuery,
             [NotNull] IKey key,
-            [NotNull] Func<ValueBuffer, object> materializer,
-            Dictionary<Type, int[]> typeIndexMap)
+            [NotNull] Func<ValueBuffer, object> materializer)
             : base(querySource)
         {
             IsTrackingQuery = trackingQuery;
             EntityType = entityType;
             Key = key;
             Materializer = materializer;
-            TypeIndexMap = typeIndexMap;
         }
 
         /// <summary>
@@ -71,12 +69,6 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
         ///     directly from your code. This API may change or be removed in future releases.
         /// </summary>
         public virtual int ValueBufferOffset { get; private set; }
-
-        /// <summary>
-        ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
-        protected virtual Dictionary<Type, int[]> TypeIndexMap { get; }
 
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
